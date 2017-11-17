@@ -116,6 +116,48 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 	if g.Client == nil {
 		g.Client = httpClient
 	}
+	byte_range, err := GetByteRange(u)
+	fmt.Printf("MEGAN: %#v", u)
+	q := u.Query()
+	byte_range := q.Get("ranged_request_bytes")
+	// http://my/file.iso?ranged_request_bytes=5555-66666`
+	if byte_range != "" {
+
+		// copied from Packer download code
+		// Make the request. We first make a HEAD request so we can check
+		// if the server supports range queries. If the server/URL doesn't
+		// support HEAD requests, we just fall back to GET.
+		req, err := http.NewRequest("HEAD", src.String(), nil)
+		if err != nil {
+			return err
+		}
+
+		if d.userAgent != "" {
+			req.Header.Set("User-Agent", d.userAgent)
+		}
+
+		httpClient := &http.Client{
+			Transport: &http.Transport{
+				Proxy: http.ProxyFromEnvironment,
+			},
+		}
+
+		resp, err := httpClient.Do(req)
+		if err == nil && (resp.StatusCode >= 200 && resp.StatusCode < 300) {
+			// If the HEAD request succeeded, then attempt to set the range
+			// query if we can.
+			if resp.Header.Get("Accept-Ranges") == "bytes" {
+				if fi, err := dst.Stat(); err == nil {
+					if _, err = dst.Seek(0, os.SEEK_END); err == nil {
+						req.Header.Set("Range", fmt.Sprintf("bytes=%d-", fi.Size()))
+						d.progress = uint(fi.Size())
+					}
+				}
+			}
+		}
+		// end of packer download code copy.
+
+	}
 
 	resp, err := g.Client.Get(u.String())
 	if err != nil {
@@ -218,6 +260,28 @@ func (g *HttpGetter) parseMeta(r io.Reader) (string, error) {
 			return f, nil
 		}
 	}
+}
+
+func GetByteRange(u *url.URL) ([]int, err) {
+	// example range: 55555-666666
+	bytes_range_retval := make([]int, 0)
+	errMsg := fmt.Errorf("Invalid byte range provided")
+	vals := strings.Split(byte_range, "-")
+	// validate byte range values given
+	if len(vals) != 2 {
+		return bytes_range_retval, errMsg
+	}
+	start, err := strconv.ParseInt(vals[0], 10, 64)
+	if err != nil {
+		return bytes_range_retval, errMsg
+	}
+	finish, err := strconv.ParseInt(vals[1], 10, 64)
+	if err != nil {
+		return bytes_range_retval, errMsg
+	}
+	// put validated values into return value
+	bytes_range_retval = []int{start, finish}
+	return bytes_range_retval, nil
 }
 
 // attrValue returns the attribute value for the case-insensitive key
