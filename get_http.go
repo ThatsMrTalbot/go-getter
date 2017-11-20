@@ -139,12 +139,8 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 			// If the HEAD request succeeded, then attempt to set the range
 			// query if we can.
 			if resp.Header.Get("Accept-Ranges") == "bytes" {
-				if fi, err := dst.Stat(); err == nil {
-					if _, err = dst.Seek(0, os.SEEK_END); err == nil {
-						req.Header.Set("Range", fmt.Sprintf("bytes=%d-", fi.Size()))
-						d.progress = uint(fi.Size())
-					}
-				}
+				req.Header.Set("Range", fmt.Sprintf("bytes=%s-%s",
+					byte_range[0], byte_range[1]))
 			}
 		}
 	}
@@ -252,10 +248,11 @@ func (g *HttpGetter) parseMeta(r io.Reader) (string, error) {
 	}
 }
 
-func GetByteRange(u *url.URL) ([]int, err) {
+func GetByteRange(u *url.URL) ([]string, err) {
+	// format can be bytes=startByte- OR bytes=startByte-endByte
 	// example URL string: "http://my/file.iso?ranged_request_bytes=5555-66666"
-	// example bytes_range_retval: []int{5555, 66666}
-	bytes_range_retval := make([]int, 0)
+	// or  "http://my/file.iso?ranged_request_bytes=5555-"
+	// example bytes_range_retval: []int{5555, 66666} or []int{5555}
 	q := u.Query()
 	byte_range := q.Get("ranged_request_bytes")
 	if byte_range == "" {
@@ -263,6 +260,7 @@ func GetByteRange(u *url.URL) ([]int, err) {
 	}
 	errMsg := fmt.Errorf("Invalid byte range provided")
 	vals := strings.Split(byte_range, "-")
+
 	// validate byte range values given
 	if len(vals) != 2 {
 		return bytes_range_retval, errMsg
@@ -271,13 +269,20 @@ func GetByteRange(u *url.URL) ([]int, err) {
 	if err != nil {
 		return bytes_range_retval, errMsg
 	}
-	finish, err := strconv.ParseInt(vals[1], 10, 64)
-	if err != nil {
-		return bytes_range_retval, errMsg
+	// If you leave endBytes blank, read to end of file.
+	if vals[1] != "" {
+		// otherwise make sure "finish" value is a number
+		finish, err := strconv.ParseInt(vals[1], 10, 64)
+		if err != nil {
+			return bytes_range_retval, errMsg
+		}
+		// need finish to be bigger than start val
+		if finish <= start {
+			return bytes_range_retval, errMsg
+		}
 	}
-	// put validated values into return value
-	bytes_range_retval = []int{start, finish}
-	return bytes_range_retval, nil
+
+	return vals, nil
 }
 
 // attrValue returns the attribute value for the case-insensitive key
