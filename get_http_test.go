@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	urlhelper "github.com/hashicorp/go-getter/helper/url"
 )
 
 func TestHttpGetter_impl(t *testing.T) {
@@ -203,6 +205,22 @@ func TestHttpGetter_authNetrc(t *testing.T) {
 	// Verify the main file exists
 	mainPath := filepath.Join(dst, "main.tf")
 	if _, err := os.Stat(mainPath); err != nil {
+		t.Fatalf("err: %s", err)
+	}
+}
+
+func TestHttpGetter_GetByteRange(t *testing.T) {
+	src := "http://my/file.iso?ranged_request_bytes=5555-66666"
+	u, err := urlhelper.Parse(src)
+	byte_range, err := GetByteRange(u)
+	if (byte_range[0] != "5555") || (byte_range[1] != "66666") {
+		t.Fatalf("err: %s", err)
+	}
+
+	src = "http://my/file.iso?ranged_request_bytes=5555-"
+	u, err = urlhelper.Parse(src)
+	byte_range, err = GetByteRange(u)
+	if (byte_range[0] != "5555") || (byte_range[1] != "") {
 		t.Fatalf("err: %s", err)
 	}
 }

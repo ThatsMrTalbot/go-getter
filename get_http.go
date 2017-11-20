@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -125,11 +126,14 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 		fmt.Printf("%s; going to download entire file without a range request",
 			err)
 	}
+
+	req, err := http.NewRequest("HEAD", u.String(), nil)
+
 	if len(byte_range) == 2 {
 		// We first make a HEAD request so we can check if the server supports
 		// range queries. If the server/URL doesn't support HEAD requests,
 		// we just fall back to GET.
-		req, err := http.NewRequest("HEAD", u.String(), nil)
+
 		if err != nil {
 			return err
 		}
@@ -251,11 +255,12 @@ func (g *HttpGetter) parseMeta(r io.Reader) (string, error) {
 	}
 }
 
-func GetByteRange(u *url.URL) ([]string, err) {
+func GetByteRange(u *url.URL) ([]string, error) {
 	// format can be bytes=startByte- OR bytes=startByte-endByte
 	// example URL string: "http://my/file.iso?ranged_request_bytes=5555-66666"
 	// or  "http://my/file.iso?ranged_request_bytes=5555-"
 	// example bytes_range_retval: []int{5555, 66666} or []int{5555}
+	bytes_range_retval := make([]string, 0)
 	q := u.Query()
 	byte_range := q.Get("ranged_request_bytes")
 	if byte_range == "" {
