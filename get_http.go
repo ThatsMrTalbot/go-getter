@@ -133,17 +133,7 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 			return err
 		}
 
-		if d.userAgent != "" {
-			req.Header.Set("User-Agent", d.userAgent)
-		}
-
-		httpClient := &http.Client{
-			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
-			},
-		}
-
-		resp, err := httpClient.Do(req)
+		resp, err := g.Client.Do(req)
 		if err == nil && (resp.StatusCode >= 200 && resp.StatusCode < 300) {
 			// If the HEAD request succeeded, then attempt to set the range
 			// query if we can.
