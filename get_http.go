@@ -123,8 +123,10 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 	// whole file
 	byte_range, err := GetByteRange(u)
 	if err != nil {
-		fmt.Printf("%s; going to download entire file without a range request",
-			err)
+		if strings.Compare("No byte range provided", err.Error()) != 0 {
+			fmt.Printf("%s; going to download entire file without a range request",
+				err)
+		}
 	}
 
 	req, err := http.NewRequest("HEAD", u.String(), nil)
