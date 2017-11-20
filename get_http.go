@@ -116,14 +116,15 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 	if g.Client == nil {
 		g.Client = httpClient
 	}
-	byte_range, err := GetByteRange(u)
 	fmt.Printf("MEGAN: %#v", u)
-	q := u.Query()
-	byte_range := q.Get("ranged_request_bytes")
-	// http://my/file.iso?ranged_request_bytes=5555-66666`
-	if byte_range != "" {
+	byte_range, err := GetByteRange(u)
+	if err != nil {
+		fmt.Printf("%s; going to download entire file without a range request",
+			err)
+	}
+	if len(byte_range) == 2 {
+		// only enter here if we have parsed a valid range from the URL.
 
-		// copied from Packer download code
 		// Make the request. We first make a HEAD request so we can check
 		// if the server supports range queries. If the server/URL doesn't
 		// support HEAD requests, we just fall back to GET.
@@ -263,8 +264,14 @@ func (g *HttpGetter) parseMeta(r io.Reader) (string, error) {
 }
 
 func GetByteRange(u *url.URL) ([]int, err) {
-	// example range: 55555-666666
+	// example URL string: "http://my/file.iso?ranged_request_bytes=5555-66666"
+	// example bytes_range_retval: []int{5555, 66666}
 	bytes_range_retval := make([]int, 0)
+	q := u.Query()
+	byte_range := q.Get("ranged_request_bytes")
+	if byte_range == "" {
+		return bytes_range_retval, fmt.Errorf("No byte range provided")
+	}
 	errMsg := fmt.Errorf("Invalid byte range provided")
 	vals := strings.Split(byte_range, "-")
 	// validate byte range values given
