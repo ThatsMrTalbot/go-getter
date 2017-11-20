@@ -117,17 +117,18 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 		g.Client = httpClient
 	}
 
+	// check to see whether user has specified a range of bytes to download.
+	// if user has, but the range is invalid, fall back to downloading the
+	// whole file
 	byte_range, err := GetByteRange(u)
 	if err != nil {
 		fmt.Printf("%s; going to download entire file without a range request",
 			err)
 	}
 	if len(byte_range) == 2 {
-		// only enter here if we have parsed a valid range from the URL.
-
-		// Make the request. We first make a HEAD request so we can check
-		// if the server supports range queries. If the server/URL doesn't
-		// support HEAD requests, we just fall back to GET.
+		// We first make a HEAD request so we can check if the server supports
+		// range queries. If the server/URL doesn't support HEAD requests,
+		// we just fall back to GET.
 		req, err := http.NewRequest("HEAD", src.String(), nil)
 		if err != nil {
 			return err
@@ -146,8 +147,6 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 				}
 			}
 		}
-		// end of packer download code copy.
-
 	}
 
 	resp, err := g.Client.Get(u.String())
