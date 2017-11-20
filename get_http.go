@@ -116,7 +116,7 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 	if g.Client == nil {
 		g.Client = httpClient
 	}
-	fmt.Printf("MEGAN: %#v", u)
+
 	byte_range, err := GetByteRange(u)
 	if err != nil {
 		fmt.Printf("%s; going to download entire file without a range request",
