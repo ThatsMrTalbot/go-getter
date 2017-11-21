@@ -121,6 +121,7 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 	// check to see whether user has specified a range of bytes to download.
 	// if user has, but the range is invalid, fall back to downloading the
 	// whole file
+	isPartialDownload := false
 	byte_range, err := GetByteRange(u)
 	if err != nil {
 		if strings.Compare("No byte range provided", err.Error()) != 0 {
@@ -147,6 +148,7 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 			if resp.Header.Get("Accept-Ranges") == "bytes" {
 				req.Header.Set("Range", fmt.Sprintf("bytes=%s-%s",
 					byte_range[0], byte_range[1]))
+				isPartialDownload = true
 			}
 		}
 	}
@@ -160,7 +162,10 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("bad response code: %d", resp.StatusCode)
+		// if we did a ranged request we'll get a 206 instead.
+		if !((resp.StatusCode == 206) && (isPartialDownload == true)) {
+			return fmt.Errorf("bad response code: %d", resp.StatusCode)
+		}
 	}
 
 	// Create all the parent directories
