@@ -122,17 +122,17 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 	// if user has, but the range is invalid, fall back to downloading the
 	// whole file
 	isPartialDownload := false
-	byteRange, err := GetByteRange(u)
-	if err != nil {
-		if strings.Compare("No byte range provided", err.Error()) != 0 {
+	byteRange, rangeErr := GetByteRange(u)
+	if rangeErr != nil {
+		if strings.Compare("No byte range provided", rangeErr.Error()) != 0 {
 			fmt.Printf("%s; going to download entire file without a range request",
-				err)
+				rangeErr)
 		}
 	}
 
 	req, err := http.NewRequest("HEAD", u.String(), nil)
 
-	if len(byteRange) == 2 {
+	if rangeErr == nil {
 		// We first make a HEAD request so we can check if the server supports
 		// range queries. If the server/URL doesn't support HEAD requests,
 		// we just fall back to GET.
