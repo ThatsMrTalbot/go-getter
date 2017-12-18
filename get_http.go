@@ -122,7 +122,7 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 	// if user has, but the range is invalid, fall back to downloading the
 	// whole file
 	isPartialDownload := false
-	byte_range, err := GetByteRange(u)
+	byteRange, err := GetByteRange(u)
 	if err != nil {
 		if strings.Compare("No byte range provided", err.Error()) != 0 {
 			fmt.Printf("%s; going to download entire file without a range request",
@@ -132,7 +132,7 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 
 	req, err := http.NewRequest("HEAD", u.String(), nil)
 
-	if len(byte_range) == 2 {
+	if len(byteRange) == 2 {
 		// We first make a HEAD request so we can check if the server supports
 		// range queries. If the server/URL doesn't support HEAD requests,
 		// we just fall back to GET.
@@ -147,7 +147,7 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 			// query if we can.
 			if resp.Header.Get("Accept-Ranges") == "bytes" {
 				req.Header.Set("Range", fmt.Sprintf("bytes=%s-%s",
-					byte_range[0], byte_range[1]))
+					byteRange[0], byteRange[1]))
 				isPartialDownload = true
 			}
 		}
@@ -269,12 +269,12 @@ func GetByteRange(u *url.URL) ([]string, error) {
 	// example bytes_range_retval: []int{5555, 66666} or []int{5555}
 	bytes_range_retval := make([]string, 0)
 	q := u.Query()
-	byte_range := q.Get("ranged_request_bytes")
-	if byte_range == "" {
+	byteRange := q.Get("ranged_request_bytes")
+	if byteRange == "" {
 		return bytes_range_retval, fmt.Errorf("No byte range provided")
 	}
 	errMsg := fmt.Errorf("Invalid byte range provided")
-	vals := strings.Split(byte_range, "-")
+	vals := strings.Split(byteRange, "-")
 
 	// validate byte range values given
 	if len(vals) != 2 {
