@@ -130,10 +130,12 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 			rangeErr)
 	}
 
+	// Create new Request here because if it is a range request, we need to set
+	// Range headers on the request object.
 	req, err := http.NewRequest("HEAD", u.String(), nil)
 
 	isPartialDownload := false
-	if rangeErr == nil {
+	if rangeErr == nil && byteRange != nil {
 		// We first make a HEAD request so we can check if the server supports
 		// range queries. If the server/URL doesn't support HEAD requests,
 		// we just fall back to GET.
@@ -143,7 +145,7 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 		}
 
 		resp, err := g.Client.Do(req)
-		if err == nil && (resp.StatusCode >= 200 && resp.StatusCode < 300) {
+		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			// If the HEAD request succeeded, then attempt to set the range
 			// query if we can.
 			if resp.Header.Get("Accept-Ranges") == "bytes" {
@@ -151,6 +153,9 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 					byteRange[0], byteRange[1]))
 				isPartialDownload = true
 			}
+		} else {
+			log.Printf("HEAD request for Range failed; falling back to full file download: %s",
+				err)
 		}
 	}
 
@@ -263,25 +268,27 @@ func (g *HttpGetter) parseMeta(r io.Reader) (string, error) {
 	}
 }
 
+// getByteRange is a helper function to parse out the byte range for ranged
+// requests.
+//
+// input values:
+// u must be non-nil and unmodified.
+// example of u:
+// "http://my/file.iso?ranged_request_bytes=5555-66666"
+// "http://my/file.iso?ranged_request_bytes=5555-"
+// note that the format of the raw url string can be either
+// bytes=startByte- OR bytes=startByte-endByte
+//
+// return values:
+// (non-nil, non-nil) - should not occur
+// (nil, nil) - returned when no byte range was provided in the first place
+// (nil, non-nil) - error occured when parsing or validating the byte range
+// (non-nil, nil) - byte range was successfully parsed, and the range is
+// returned as an array of strings in the following format:
+// example non-nil return val "vals":
+// []string{5555, 66666}      // first url example above
+// []string{5555}             // second url example above
 func getByteRange(u *url.URL) ([]string, error) {
-	// input values:
-	// u must be non-nil and unmodified.
-	// example of u:
-	// "http://my/file.iso?ranged_request_bytes=5555-66666"
-	// "http://my/file.iso?ranged_request_bytes=5555-"
-	// note that the format of the raw url string can be either
-	// bytes=startByte- OR bytes=startByte-endByte
-	//
-	// return values:
-	// (non-nil, non-nil) - should not occur
-	// (nil, nil) - returned when no byte range was provided in the first place
-	// (nil, non-nil) - error occured when parsing or validating the byte range
-	// (non-nil, nil) - byte range was successfully parsed, and the range is
-	// returned as an array of strings in the following format:
-	// example non-nil return val "vals":
-	// []string{5555, 66666}      // first url example above
-	// []string{5555}             // secomd url example above
-
 	q := u.Query()
 	byteRange := q.Get("ranged_request_bytes")
 	if byteRange == "" {
