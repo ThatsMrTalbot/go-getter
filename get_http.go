@@ -133,16 +133,15 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 	// Create new Request here because if it is a range request, we need to set
 	// Range headers on the request object.
 	req, err := http.NewRequest("HEAD", u.String(), nil)
+	if err != nil {
+		return err
+	}
 
 	isPartialDownload := false
 	if rangeErr == nil && byteRange != nil {
 		// We first make a HEAD request so we can check if the server supports
 		// range queries. If the server/URL doesn't support HEAD requests,
 		// we just fall back to GET.
-
-		if err != nil {
-			return err
-		}
 
 		resp, err := g.Client.Do(req)
 		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
@@ -167,11 +166,9 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		// if we did a ranged request we'll get a 206 instead.
-		if !((resp.StatusCode == 206) && (isPartialDownload == true)) {
-			return fmt.Errorf("bad response code: %d", resp.StatusCode)
-		}
+	// If we did a ranged request we should get a 206; otherwise we should get a 200
+	if resp.StatusCode != 200 && !(isPartialDownload && resp.StatusCode == 206) {
+		return fmt.Errorf("bad response code: %d", resp.StatusCode)
 	}
 
 	// Create all the parent directories
