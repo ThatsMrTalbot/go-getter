@@ -8,7 +8,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	urlhelper "github.com/hashicorp/go-getter/helper/url"
 )
@@ -153,6 +155,38 @@ func TestHttpGetter_file(t *testing.T) {
 		t.Fatalf("err: %s", err)
 	}
 	assertContents(t, dst, "Hello\n")
+}
+
+var rangeReqs = []struct {
+	Input    string
+	Expected string
+}{
+	{"0-", "Hello\n"},
+	{"0-2", "Hel"},
+	{"2-3", "ll"},
+	{"3-", "lo\n"},
+}
+
+func TestHttpGetter_ranged_request(t *testing.T) {
+	ln := testHttpServer(t)
+	defer ln.Close()
+
+	g := new(HttpGetter)
+	dst := tempFile(t)
+	for _, rangeReq := range rangeReqs {
+		u, _ := urlhelper.Parse(fmt.Sprintf("http://%s/file?ranged_request_bytes=%s",
+			ln.Addr().String(), rangeReq.Input))
+		// Get it!
+		if err := g.GetFile(dst, u); err != nil {
+			t.Fatalf("err: %s", err)
+		}
+
+		// Verify the main file exists
+		if _, err := os.Stat(dst); err != nil {
+			t.Fatalf("err: %s", err)
+		}
+		assertContents(t, dst, rangeReq.Expected)
+	}
 }
 
 func TestHttpGetter_auth(t *testing.T) {
@@ -305,7 +339,7 @@ func testHttpServer(t *testing.T) net.Listener {
 }
 
 func testHttpHandlerFile(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Hello\n"))
+	http.ServeContent(w, r, "hello.txt", time.Now(), strings.NewReader("Hello\n"))
 }
 
 func testHttpHandlerHeader(w http.ResponseWriter, r *http.Request) {
