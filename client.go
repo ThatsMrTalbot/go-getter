@@ -248,7 +248,13 @@ func (c *Client) Get() error {
 	// If we're not downloading a directory, then just download the file
 	// and return.
 	if mode == ClientModeFile {
-		err := g.GetFile(dst, u)
+		uClone := *u
+		if subDir != "" && decompressor == nil {
+			uClone.Path += fmt.Sprintf("//%s", subDir)
+			dst = realDst
+		}
+
+		err := g.GetFile(dst, &uClone)
 		if err != nil {
 			return err
 		}

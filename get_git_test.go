@@ -182,7 +182,7 @@ func TestGitGetter_GetFile(t *testing.T) {
 	repo.commitFile("file.txt", "hello")
 
 	// Download the file
-	repo.url.Path = filepath.Join(repo.url.Path, "file.txt")
+	repo.url.Path += "//file.txt"
 	if err := g.GetFile(dst, repo.url); err != nil {
 		t.Fatalf("err: %s", err)
 	}

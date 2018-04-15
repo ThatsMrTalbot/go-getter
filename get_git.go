@@ -114,8 +114,8 @@ func (g *GitGetter) GetFile(dst string, u *url.URL) error {
 
 	// Get the filename, and strip the filename from the URL so we can
 	// just get the repository directly.
-	filename := filepath.Base(u.Path)
-	u.Path = filepath.Dir(u.Path)
+	var filename string
+	u.Path, filename = SourceDirSubdir(u.Path)
 
 	// Get the full repository
 	if err := g.Get(td, u); err != nil {
